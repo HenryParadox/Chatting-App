@@ -1,0 +1,155 @@
+<%- include('Partials/header.ejs')%>
+    <h2 class="mb-4">Hi, <%= user.name %>
+    </h2>
+
+    <div class="row">
+        <div class="col-md-3">
+            <ul class="list-group">
+                <% if(users.length> 0){
+                    for(let j = 0; j < users.length; j++){ %>
+                        <li class="list-group-item cursor-pointer user-list" userName="<%= users[j]['name']%>">
+                            <img src="<%=users[j]['image'] %>" alt=""
+                                style="width:35px; height: 35px; border-radius: 50%; margin-right: 15px; ">
+                            <%= users[j]['name'] %>
+                                <%if(users[j]['is_online']== 1){ %>
+                                    <sup class="online-status" id="<%=users[j]['_id']%>-status">Online</sup>
+                                    <% }else{ %>
+                                        <sup class="offline-status" id="<%=users[j]['_id']%>-status">Offline</sup>
+                                        <% } %>
+                        </li>
+                        <% } } %>
+            </ul>
+        </div>
+        <div class="col-md-9">
+            <section class="chat-section" id="change-li">
+                <div class="brand">
+                    <img height="36" src="./css/i-Chat.png" alt="">
+                    <h1>i Chat</h1>
+                </div>
+                <div class="msg-area">
+                    <!-- <div class="incoming">
+                        <h6>Rahul</h6>
+                        <p>Lorem ipsum dolor si.</p>
+                    </div>
+                    <div class="outgoing">
+                        <h6>Rohit</h6>
+                        <p>Lorem ipsum dolor sit amet.</p>
+                    </div> -->
+                </div>
+                <div>
+                    <textarea id="textarea" cols="20" rows="1" placeholder="Write a Message..."></textarea>
+                </div>
+            </section>
+            <!-- <%- include('Partials/chatBoard.ejs')%> -->
+        </div>
+
+        <script>
+            const sender = '<%= user._id %>'
+            const senderName = '<%= user.name %>'
+            var receiverName;
+
+            const socket = io("/user-namespace", {
+                auth: {
+                    sender_id: sender,
+                    sender_name: senderName,
+                }
+            })
+
+            document.addEventListener('DOMContentLoaded', function () {
+                var liElements = document.querySelectorAll('li');
+
+                liElements.forEach(function (li) {
+                    li.addEventListener('click', function () {
+                        let userName = li.getAttribute('userName');
+                        receiverName = userName
+                        const dataToSend = { receiverNameKey: receiverName };
+                        socket.emit('sendDataToServer', dataToSend);
+                    });
+                });
+            });
+
+            socket.on("userOnline", function (data) {
+                var userStatusElement = document.getElementById(data.user_id + '-status');
+                if (userStatusElement) {
+                    userStatusElement.textContent = 'Online';
+                    userStatusElement.classList.remove('offline-status');
+                    userStatusElement.classList.add('online-status');
+                }
+            });
+
+            socket.on("userOffline", function (data) {
+                var userStatusElement = document.getElementById(data.user_id + '-status');
+                if (userStatusElement) {
+                    userStatusElement.textContent = 'Offline';
+                    userStatusElement.classList.remove('online-status');
+                    userStatusElement.classList.add('offline-status');
+                }
+            });
+
+            ////////////////////////////////////////////////////////////////////
+
+            let name = '<%= user.name %>'
+            let textarea = document.querySelector("#textarea");
+            let messageArea = document.querySelector(".msg-area");
+
+            textarea.addEventListener("keyup", (e) => {
+                if (e.key === "Enter") {
+                    sendMessage(e.target.value);
+                }
+            });
+
+            function sendMessage(message) {
+                let msg = {
+                    sender: name,
+                    receiver: receiverName,
+                    message: message.trim(),
+                }
+                socket.emit("send_message", msg);
+                appendSenderMessage(msg, "outgoing");
+                textarea.value = "";
+                scrollToBottom();
+            }
+
+            function appendSenderMessage(msg, type) {
+                let mainDiv = document.createElement("div");
+                let className = type;
+                mainDiv.classList.add(className, "message");
+
+                let markup = `
+                    <h6>${msg.sender}</h6>
+                    <p>${msg.message}</p>
+                    `;
+                mainDiv.innerHTML = markup;
+                messageArea.appendChild(mainDiv);
+            }
+            function appendReceiverMessage(msg, type) {
+                let mainDiv = document.createElement("div");
+                let className = type;
+                mainDiv.classList.add(className, "message");
+
+                let markup = `
+                    <h6>${msg.sender}</h6>
+                    <p>${msg.message}</p>
+                    `;
+                mainDiv.innerHTML = markup;
+                messageArea.appendChild(mainDiv);
+            }
+
+            socket.on("new_message", function (reData) {
+                console.log("Server reData => ", reData.sender)
+                console.log("Client reData => ", receiverName)
+                if (reData.sender != receiverName) {
+                    alert(`${reData.sender} is message you. please reply him..`)
+                } else {
+                    appendReceiverMessage(reData, 'incoming')
+                    scrollToBottom()
+                }
+            })
+
+            function scrollToBottom() {
+                messageArea.scrollTop = messageArea.scrollHeight;
+            }
+        </script>
+    </div>
+
+    <%- include('Partials/footer.ejs')%>
